@@ -1,6 +1,7 @@
 # Backbone
 
-A simple Reflex web application with a button counter.
+Dynamic Summarization of Scientific Papers Using Profile-Aware AI 
+
 
 ## Prerequisites
 
@@ -62,7 +63,7 @@ To stop the running container, press `Ctrl+C` in the terminal where it's running
 ```bash
 docker ps
 docker stop <container_id>
-```
+
 
 ## Project Structure
 
@@ -71,5 +72,8 @@ docker stop <container_id>
 - `Dockerfile`: Docker configuration
 - `uploads/`: Directory for file uploads (if needed)
 
+## Run the REFLEX app using :
 
+```bash
 reflex run --backend-host 0.0.0.0 --backend-port 8000 --frontend-port 3000
+```
