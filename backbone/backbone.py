@@ -3,8 +3,8 @@ import reflex as rx
 class State(rx.State):
     """The app state."""
 
-    # The images to show.
-    img: list[str]
+    # The uploaded documents to show.
+    uploaded_documents: list[str]
 
     async def handle_upload(
         self, files: list[rx.UploadFile]
@@ -22,8 +22,17 @@ class State(rx.State):
             with outfile.open("wb") as file_object:
                 file_object.write(upload_data)
 
-            # Update the img var.
-            self.img.append(file.name)
+            # Update the uploaded_documents list.
+            self.uploaded_documents.append(file.name)
+
+    def clear_files(self):
+        """Clear all uploaded files from disk and state."""
+        import os
+        for filename in self.uploaded_documents:
+            file_path = rx.get_upload_dir() / filename
+            if file_path.exists():
+                os.remove(file_path)
+        self.uploaded_documents = []
 
 
 color = "rgb(107,99,246)"
@@ -48,10 +57,6 @@ def index():
             multiple=True,
             accept={
                 "application/pdf": [".pdf"],
-                "image/png": [".png"],
-                "image/jpeg": [".jpg", ".jpeg"],
-                "image/gif": [".gif"],
-                "image/webp": [".webp"],
                 "text/html": [".html", ".htm"],
                 "text/plain": [".txt"],
                 "application/msword": [".doc"],
@@ -66,44 +71,72 @@ def index():
             border=f"1px dotted {color}",
             padding="5em",
         ),
+        rx.cond(
+            State.uploaded_documents.length() > 0,
+            rx.hstack(
+                rx.button(
+                    "Clear All Files",
+                    on_click=State.clear_files,
+                    bg="red",
+                    color="white",
+                    border="1px solid red",
+                    _hover={"bg": "darkred"},
+                ),
+                rx.text(f"{State.uploaded_documents.length()} file(s) uploaded", color="gray"),
+                spacing="4",
+                align="center",
+            ),
+        ),
         rx.grid(
             rx.foreach(
-                State.img,
-                lambda img: rx.vstack(
+                State.uploaded_documents,
+                lambda doc: rx.vstack(
                     rx.cond(
-                        img.endswith(".pdf"),
+                        doc.endswith(".pdf"),
                         rx.link(
                             rx.vstack(
                                 rx.icon("file-text", size=48, color=color),
                                 rx.text("PDF Document", font_size="sm"),
                             ),
-                            href=rx.get_upload_url(img),
+                            href=rx.get_upload_url(doc),
                             is_external=True,
                             text_decoration="none",
                         ),
                         rx.cond(
-                            img.endswith(".txt"),
+                            doc.endswith(".txt"),
                             rx.link(
                                 rx.vstack(
                                     rx.icon("file-text", size=48, color=color),
                                     rx.text("Text Document", font_size="sm"),
                                 ),
-                                href=rx.get_upload_url(img),
+                                href=rx.get_upload_url(doc),
                                 is_external=True,
                                 text_decoration="none",
                             ),
-                            rx.link(
-                                rx.vstack(
-                                    rx.icon("file", size=48, color=color),
-                                    rx.text("Word Document", font_size="sm"),
+                            rx.cond(
+                                doc.endswith(".html") | doc.endswith(".htm"),
+                                rx.link(
+                                    rx.vstack(
+                                        rx.icon("globe", size=48, color=color),
+                                        rx.text("HTML Document", font_size="sm"),
+                                    ),
+                                    href=rx.get_upload_url(doc),
+                                    is_external=True,
+                                    text_decoration="none",
                                 ),
-                                href=rx.get_upload_url(img),
-                                is_external=True,
-                                text_decoration="none",
+                                rx.link(
+                                    rx.vstack(
+                                        rx.icon("file", size=48, color=color),
+                                        rx.text("Word Document", font_size="sm"),
+                                    ),
+                                    href=rx.get_upload_url(doc),
+                                    is_external=True,
+                                    text_decoration="none",
+                                ),
                             ),
                         ),
                     ),
-                    rx.text(img, font_size="xs", color="gray"),
+                    rx.text(doc, font_size="xs", color="gray"),
                 ),
             ),
             columns="3",
