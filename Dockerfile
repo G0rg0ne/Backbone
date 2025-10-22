@@ -28,12 +28,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Initialize Reflex with a blank template (non-interactive)
 RUN echo "1" | reflex init
 
-# Copy our custom app.py to the correct location (app subdirectory)
-COPY app.py ./app/
-
 # Expose both ports
 EXPOSE 3000
 EXPOSE 8000
+ENV REFLEX_UPLOADED_FILES_DIR="/app/uploads"
 
 # Run the app
-CMD ["reflex", "run", "--backend-host", "0.0.0.0", "--backend-port", "8000", "--frontend-port", "3000"]
+#CMD ["reflex", "run", "--backend-host", "0.0.0.0", "--backend-port", "8000", "--frontend-port", "3000"]
