@@ -255,7 +255,6 @@ def index():
                         wrap="wrap",
                     ),
                     padding="1.5em",
-                    bg="black",
                     border="1px solid",
                     border_color="gray.200",
                     border_radius="xl",
@@ -347,7 +346,6 @@ def index():
                             ),
                             padding="1em",
                             border_radius="lg",
-                            bg="black",
                             _hover={
                                 "border_color": color,
                                 "box_shadow": f"0 4px 12px {color}20",
