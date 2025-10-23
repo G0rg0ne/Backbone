@@ -13,8 +13,6 @@ RUN apt-get update && apt-get install -y \
     gcc \
     unzip \
     curl \
-    libgl1 \
-    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Bun (JavaScript runtime required by Reflex)
@@ -30,10 +28,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Initialize Reflex with a blank template (non-interactive)
 RUN echo "1" | reflex init
 
-# Expose both ports
-EXPOSE 3000
-EXPOSE 8000
-ENV REFLEX_UPLOADED_FILES_DIR="/app/uploads"
+# Copy application code
+COPY . .
+
+# Expose frontend and backend ports
+EXPOSE 3000 8001
 
 # Run the app
-#CMD ["reflex", "run", "--backend-host", "0.0.0.0", "--backend-port", "8000", "--frontend-port", "3000"]
+CMD ["reflex", "run", "--frontend-port", "3000", "--backend-port", "8001"]

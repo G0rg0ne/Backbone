@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  document_processor:
+    build:
+      context: ./document_processor
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+      - "8001:8001"  # Expose Reflex backend port
+    depends_on:
+      - document_processor
+    environment:
+      - REFLEX_UPLOADED_FILES_DIR=/app/uploads
+      - DOCUMENT_PROCESSOR_URL=http://document_processor:8000
+    restart: unless-stopped
+
+volumes:
+  uploads:
