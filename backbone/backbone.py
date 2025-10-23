@@ -1,11 +1,17 @@
 import reflex as rx
-from unstructured.partition.pdf import partition_pdf
+import httpx
+import asyncio
+import os
+import json
+
+# Document processor API configuration
+DOCUMENT_PROCESSOR_URL = os.getenv("DOCUMENT_PROCESSOR_URL", "http://localhost:8000")
 
 class State(rx.State):
     """The app state."""
 
     # The uploaded documents to show.
-    uploaded_documents: list[str]
+    uploaded_documents: list[str] = []
     
     # PDF processing state
     is_processing: bool = False
@@ -15,41 +21,63 @@ class State(rx.State):
     async def handle_upload(
         self, files: list[rx.UploadFile]
     ):
-        """Handle the upload of file(s).
+        """Handle the upload of file(s) by sending to backend API.
 
         Args:
             files: The uploaded files.
         """
-        for file in files:
-            upload_data = await file.read()
-            outfile = rx.get_upload_dir() / file.name
+        try:
+            # Prepare files for API upload
+            files_data = []
+            for file in files:
+                upload_data = await file.read()
+                files_data.append(("files", (file.name, upload_data, "application/pdf")))
+            
+            # Send files to backend API
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{DOCUMENT_PROCESSOR_URL}/upload",
+                    files=files_data,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                # Update the uploaded_documents list
+                self.uploaded_documents.extend(result["files"])
+                self.processing_status = f"Successfully uploaded {len(result['files'])} file(s)."
+                
+        except httpx.HTTPError as e:
+            self.processing_status = f"Error uploading files: {str(e)}"
+        except Exception as e:
+            self.processing_status = f"Unexpected error: {str(e)}"
 
-            # Save the file.
-            with outfile.open("wb") as file_object:
-                file_object.write(upload_data)
-
-            # Update the uploaded_documents list.
-            self.uploaded_documents.append(file.name)
-
-    def clear_files(self):
-        """Clear all uploaded files from disk and state."""
-        import os
-        for filename in self.uploaded_documents:
-            file_path = rx.get_upload_dir() / filename
-            if file_path.exists():
-                os.remove(file_path)
-        self.uploaded_documents = []
-        self.extracted_texts = {}
-        self.processing_status = ""
-
-    def extract_text_from_pdf(self, pdf_path):
-        """Extract text from PDF using unstructured library."""
-        elements = partition_pdf(filename=pdf_path)
-        text = "\n".join([el.text for el in elements if hasattr(el, 'text')])
-        return text
+    async def clear_files(self):
+        """Clear all uploaded files from backend and state."""
+        try:
+            if not self.uploaded_documents:
+                return
+            async with httpx.AsyncClient() as client:
+                response = await client.request(
+                    "DELETE",
+                    f"{DOCUMENT_PROCESSOR_URL}/files",
+                    json=self.uploaded_documents,
+                    timeout=10.0
+                )
+                response.raise_for_status()
+                
+            # Clear local state
+            self.uploaded_documents = []
+            self.extracted_texts = {}
+            self.processing_status = "All files cleared successfully."
+            
+        except httpx.HTTPError as e:
+            self.processing_status = f"Error clearing files: {str(e)}"
+        except Exception as e:
+            self.processing_status = f"Unexpected error: {str(e)}"
 
     async def process_pdfs(self):
-        """Process all uploaded PDF files and extract text."""
+        """Process all uploaded PDF files via backend API."""
         self.is_processing = True
         self.processing_status = "Processing PDFs..."
         
@@ -61,17 +89,27 @@ class State(rx.State):
                 self.is_processing = False
                 return
             
-            for pdf_file in pdf_files:
-                file_path = rx.get_upload_dir() / pdf_file
-                if file_path.exists():
-                    self.processing_status = f"Processing {pdf_file}..."
-                    extracted_text = self.extract_text_from_pdf(str(file_path))
-                    self.extracted_texts[pdf_file] = extracted_text
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{DOCUMENT_PROCESSOR_URL}/process-pdfs",
+                    json=pdf_files,
+                    timeout=60.0  # Longer timeout for processing
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                # Update extracted texts
+                self.extracted_texts = result["extracted_texts"]
+                
+                if result["errors"]:
+                    self.processing_status = f"Processed {result['processed_count']} files. Errors: {', '.join(result['errors'])}"
+                else:
+                    self.processing_status = f"Successfully processed {result['processed_count']} PDF file(s)."
             
-            self.processing_status = f"Successfully processed {len(pdf_files)} PDF file(s)."
-            
-        except Exception as e:
+        except httpx.HTTPError as e:
             self.processing_status = f"Error processing PDFs: {str(e)}"
+        except Exception as e:
+            self.processing_status = f"Unexpected error: {str(e)}"
         finally:
             self.is_processing = False
 
