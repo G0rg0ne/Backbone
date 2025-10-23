@@ -1,10 +1,16 @@
 import reflex as rx
+from unstructured.partition.pdf import partition_pdf
 
 class State(rx.State):
     """The app state."""
 
     # The uploaded documents to show.
     uploaded_documents: list[str]
+    
+    # PDF processing state
+    is_processing: bool = False
+    processing_status: str = ""
+    extracted_texts: dict[str, str] = {}
 
     async def handle_upload(
         self, files: list[rx.UploadFile]
@@ -33,6 +39,41 @@ class State(rx.State):
             if file_path.exists():
                 os.remove(file_path)
         self.uploaded_documents = []
+        self.extracted_texts = {}
+        self.processing_status = ""
+
+    def extract_text_from_pdf(self, pdf_path):
+        """Extract text from PDF using unstructured library."""
+        elements = partition_pdf(filename=pdf_path)
+        text = "\n".join([el.text for el in elements if hasattr(el, 'text')])
+        return text
+
+    async def process_pdfs(self):
+        """Process all uploaded PDF files and extract text."""
+        self.is_processing = True
+        self.processing_status = "Processing PDFs..."
+        
+        try:
+            pdf_files = [doc for doc in self.uploaded_documents if doc.endswith('.pdf')]
+            
+            if not pdf_files:
+                self.processing_status = "No PDF files found to process."
+                self.is_processing = False
+                return
+            
+            for pdf_file in pdf_files:
+                file_path = rx.get_upload_dir() / pdf_file
+                if file_path.exists():
+                    self.processing_status = f"Processing {pdf_file}..."
+                    extracted_text = self.extract_text_from_pdf(str(file_path))
+                    self.extracted_texts[pdf_file] = extracted_text
+            
+            self.processing_status = f"Successfully processed {len(pdf_files)} PDF file(s)."
+            
+        except Exception as e:
+            self.processing_status = f"Error processing PDFs: {str(e)}"
+        finally:
+            self.is_processing = False
 
 
 color = "rgb(107,99,246)"
@@ -41,106 +82,285 @@ color = "rgb(107,99,246)"
 def index():
     """The main view."""
     return rx.vstack(
-        rx.upload(
-            rx.vstack(
-                rx.button(
-                    "Select File",
-                    color=color,
-                    bg="white",
-                    border=f"1px solid {color}",
+        # Upload Section with improved UI
+        rx.box(
+            rx.upload(
+                rx.vstack(
+                    rx.icon(
+                        "upload-cloud",
+                        size=64,
+                        color=color,
+                        opacity=0.8,
+                    ),
+                    rx.heading(
+                        "Upload PDF Documents",
+                        size="5",
+                        color="gray.700",
+                        font_weight="600",
+                    ),
+                    rx.text(
+                        "Drag and drop your PDF files here, or click to browse",
+                        color="gray.500",
+                        font_size="md",
+                        text_align="center",
+                    ),
+                    rx.button(
+                        rx.icon("plus", size=20),
+                        "Choose Files",
+                        color="white",
+                        bg=color,
+                        border=f"2px solid {color}",
+                        padding="1em 2em",
+                        font_size="md",
+                        font_weight="600",
+                        border_radius="lg",
+                        _hover={
+                            "bg": "rgb(87, 89, 246)",
+                            "transform": "translateY(-2px)",
+                            "box_shadow": f"0 8px 25px {color}40",
+                        },
+                        transition="all 0.2s ease",
+                    ),
+                    rx.text(
+                        "Supports PDF files up to 10MB each",
+                        color="gray.400",
+                        font_size="sm",
+                    ),
+                    spacing="4",
+                    align="center",
                 ),
-                rx.text(
-                    "Drag and drop files here or click to select files"
+                id="upload2",
+                multiple=True,
+                accept={
+                    "application/pdf": [".pdf"],
+                },
+                max_files=5,
+                disabled=False,
+                no_keyboard=True,
+                on_drop=State.handle_upload(
+                    rx.upload_files(upload_id="upload2")
                 ),
+                border=f"2px dashed {color}",
+                border_radius="xl",
+                padding="4em 2em",
+                bg="gray.50",
+                _hover={
+                    "bg": "gray.100",
+                    "border_color": "rgb(87, 89, 246)",
+                    "transform": "translateY(-2px)",
+                    "box_shadow": f"0 10px 30px {color}20",
+                },
+                transition="all 0.3s ease",
+                width="100%",
+                max_width="600px",
+                margin="0 auto",
             ),
-            id="upload2",
-            multiple=True,
-            accept={
-                "application/pdf": [".pdf"],
-                "text/html": [".html", ".htm"],
-                "text/plain": [".txt"],
-                "application/msword": [".doc"],
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-            },
-            max_files=5,
-            disabled=False,
-            no_keyboard=True,
-            on_drop=State.handle_upload(
-                rx.upload_files(upload_id="upload2")
-            ),
-            border=f"1px dotted {color}",
-            padding="5em",
+            width="100%",
+            display="flex",
+            justify="center",
+            padding="2em 0",
         ),
+        # Action Buttons Section
         rx.cond(
             State.uploaded_documents.length() > 0,
-            rx.hstack(
-                rx.button(
-                    "Clear All Files",
-                    on_click=State.clear_files,
-                    bg="red",
-                    color="white",
-                    border="1px solid red",
-                    _hover={"bg": "darkred"},
+            rx.vstack(
+                rx.box(
+                    rx.hstack(
+                        rx.button(
+                            rx.icon("trash-2", size=16),
+                            "Clear All Files",
+                            on_click=State.clear_files,
+                            bg="red.500",
+                            color="white",
+                            border="2px solid red.500",
+                            padding="0.75em 1.5em",
+                            font_weight="600",
+                            border_radius="lg",
+                            _hover={
+                                "bg": "red.600",
+                                "transform": "translateY(-2px)",
+                                "box_shadow": "0 8px 25px rgba(239, 68, 68, 0.4)",
+                            },
+                            transition="all 0.2s ease",
+                        ),
+                        rx.button(
+                            rx.icon("zap", size=16),
+                            "Process PDFs",
+                            on_click=State.process_pdfs,
+                            bg=color,
+                            color="white",
+                            border=f"2px solid {color}",
+                            padding="0.75em 1.5em",
+                            font_weight="600",
+                            border_radius="lg",
+                            _hover={
+                                "bg": "rgb(87, 89, 246)",
+                                "transform": "translateY(-2px)",
+                                "box_shadow": f"0 8px 25px {color}40",
+                            },
+                            disabled=State.is_processing,
+                            transition="all 0.2s ease",
+                        ),
+                        rx.box(
+                            rx.text(
+                                f"{State.uploaded_documents.length()} file(s) uploaded",
+                                color="gray.600",
+                                font_weight="500",
+                                font_size="sm",
+                            ),
+                            padding="0.75em 1.5em",
+                            bg="gray.100",
+                            border_radius="lg",
+                        ),
+                        spacing="4",
+                        align="center",
+                        wrap="wrap",
+                    ),
+                    padding="1.5em",
+                    bg="black",
+                    border="1px solid",
+                    border_color="gray.200",
+                    border_radius="xl",
+                    box_shadow="0 4px 6px rgba(0, 0, 0, 0.05)",
+                    width="100%",
+                    max_width="600px",
+                    margin="0 auto",
                 ),
-                rx.text(f"{State.uploaded_documents.length()} file(s) uploaded", color="gray"),
-                spacing="4",
+                rx.cond(
+                    State.processing_status != "",
+                    rx.box(
+                        rx.text(
+                            State.processing_status,
+                            color="blue.600",
+                            font_size="sm",
+                            font_weight="500",
+                        ),
+                        padding="1em 1.5em",
+                        bg="blue.50",
+                        border="1px solid",
+                        border_color="blue.200",
+                        border_radius="lg",
+                        width="100%",
+                        max_width="600px",
+                        margin="0 auto",
+                        text_align="center",
+                    ),
+                ),
+                spacing="3",
                 align="center",
+                width="100%",
             ),
         ),
-        rx.grid(
-            rx.foreach(
-                State.uploaded_documents,
-                lambda doc: rx.vstack(
-                    rx.cond(
-                        doc.endswith(".pdf"),
-                        rx.link(
+        # File Preview Section
+        rx.cond(
+            State.uploaded_documents.length() > 0,
+            rx.vstack(
+                rx.divider(margin="2em 0"),
+                rx.heading(
+                    "Uploaded Files",
+                    size="4",
+                    color="gray.700",
+                    font_weight="600",
+                ),
+                rx.grid(
+                    rx.foreach(
+                        State.uploaded_documents,
+                        lambda doc: rx.box(
                             rx.vstack(
-                                rx.icon("file-text", size=48, color=color),
-                                rx.text("PDF Document", font_size="sm"),
-                            ),
-                            href=rx.get_upload_url(doc),
-                            is_external=True,
-                            text_decoration="none",
-                        ),
-                        rx.cond(
-                            doc.endswith(".txt"),
-                            rx.link(
-                                rx.vstack(
-                                    rx.icon("file-text", size=48, color=color),
-                                    rx.text("Text Document", font_size="sm"),
-                                ),
-                                href=rx.get_upload_url(doc),
-                                is_external=True,
-                                text_decoration="none",
-                            ),
-                            rx.cond(
-                                doc.endswith(".html") | doc.endswith(".htm"),
-                                rx.link(
-                                    rx.vstack(
-                                        rx.icon("globe", size=48, color=color),
-                                        rx.text("HTML Document", font_size="sm"),
+                                rx.cond(
+                                    doc.endswith(".pdf"),
+                                    rx.link(
+                                        rx.vstack(
+                                            rx.box(
+                                                rx.icon("file-text", size=40, color="white"),
+                                                bg=color,
+                                                padding="1em",
+                                                border_radius="lg",
+                                                _hover={
+                                                    "bg": "rgb(87, 89, 246)",
+                                                    "transform": "scale(1.05)",
+                                                },
+                                                transition="all 0.2s ease",
+                                            ),
+                                            rx.text(
+                                                "PDF Document",
+                                                font_size="sm",
+                                                font_weight="600",
+                                                color="gray.700",
+                                            ),
+                                        ),
+                                        href=rx.get_upload_url(doc),
+                                        is_external=True,
+                                        text_decoration="none",
                                     ),
-                                    href=rx.get_upload_url(doc),
-                                    is_external=True,
-                                    text_decoration="none",
                                 ),
-                                rx.link(
-                                    rx.vstack(
-                                        rx.icon("file", size=48, color=color),
-                                        rx.text("Word Document", font_size="sm"),
-                                    ),
-                                    href=rx.get_upload_url(doc),
-                                    is_external=True,
-                                    text_decoration="none",
+                                rx.text(
+                                    doc,
+                                    font_size="xs",
+                                    color="gray.500",
+                                    text_align="center",
+                                    max_width="120px",
+                                    overflow="hidden",
+                                    text_overflow="ellipsis",
+                                    white_space="nowrap",
                                 ),
+                                spacing="2",
+                                align="center",
                             ),
+                            padding="1em",
+                            border_radius="lg",
+                            bg="black",
+                            _hover={
+                                "border_color": color,
+                                "box_shadow": f"0 4px 12px {color}20",
+                                "transform": "translateY(-2px)",
+                            },
+                            transition="all 0.2s ease",
+                            width="100%",
                         ),
                     ),
-                    rx.text(doc, font_size="xs", color="gray"),
+                    columns="4",
+                    spacing="4",
+                    width="100%",
+                    max_width="800px",
+                    margin="0 auto",
                 ),
+                spacing="4",
+                align="center",
+                width="100%",
             ),
-            columns="3",
-            spacing="4",
+        ),
+        rx.cond(
+            State.extracted_texts.length() > 0,
+            rx.vstack(
+                rx.divider(),
+                rx.heading("Extracted Text", size="4", color=color),
+                rx.foreach(
+                    State.extracted_texts,
+                    lambda item: rx.vstack(
+                        rx.text(
+                            f"From: {item[0]}",
+                            font_weight="bold",
+                            color="gray",
+                            font_size="sm",
+                        ),
+                        rx.text(
+                            item[1],
+                            font_size="sm",
+                            max_height="200px",
+                            overflow_y="auto",
+                            padding="1em",
+                            border=f"1px solid {color}",
+                            border_radius="md",
+                            bg="gray.50",
+                        ),
+                        spacing="2",
+                        align="start",
+                    ),
+                ),
+                spacing="4",
+                align="start",
+            ),
         ),
         padding="5em",
     )
