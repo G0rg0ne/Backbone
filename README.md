@@ -2,77 +2,94 @@
 
 Dynamic Summarization of Scientific Papers Using Profile-Aware AI 
 
+## Architecture
+
+This application is now split into two separate services:
+
+- **Frontend**: Reflex-based web interface (port 3000)
+- **Document Processor**: FastAPI backend service (port 8000)
 
 ## Prerequisites
 
-- Docker installed on your system
+- Docker and Docker Compose installed on your system
 - Git (to clone the repository)
 
-## Running with Docker
+## Quick Start with Docker Compose
 
-### Building the Docker Image
-
-To build the Docker image, run the following command in the project root directory:
+The easiest way to run the application is using Docker Compose:
 
 ```bash
-docker build -t backbone .
+docker-compose up --build
 ```
 
 This will:
-- Create a Docker image named `backbone`
-- Install all Python dependencies from `requirements.txt`
-- Set up the Reflex environment
-- Copy your application code into the container
+- Build both the frontend and document processor services
+- Start both services with proper networking
+- Make the application available at http://localhost:3000
 
-### Running the Container
+## Manual Setup
 
-To run the container with the current directory mounted for development:
+### Option 1: Using the Startup Script
 
 ```bash
-docker run -it --rm -p 3000:3000 -p 8000:8000 -v $(pwd):/app backbone /bin/bash
+chmod +x start.sh
+./start.sh
 ```
 
-### What the Docker Run Command Does
+### Option 2: Running Services Separately
 
-- `-it`: Runs the container in interactive mode with a TTY
-- `--rm`: Automatically removes the container when it exits
-- `-p 3000:3000`: Maps port 3000 from the container to port 3000 on your host (frontend)
-- `-p 8000:8000`: Maps port 8000 from the container to port 8000 on your host (backend)
-- `-v $(pwd):/app`: Mounts the current directory to `/app` in the container for live development
-- `backbone`: The name of the Docker image to run
-- `/bin/bash`: Starts a bash shell inside the container
+#### Start the Document Processor (Backend)
+```bash
+cd document_processor
+pip install -r requirements.txt
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-### Accessing the Application
+#### Start the Frontend
+```bash
+pip install -r requirements.txt
+reflex run --frontend-port 3000
+```
 
-Once the container is running, you can access:
+## Accessing the Application
+
+Once running, you can access:
 - **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-
-### Development Mode
-
-With the current directory mounted, any changes you make to your Python files will be reflected in the running container. Once inside the container, you can run your Reflex app with:
-
-```bash
-reflex run --backend-host 0.0.0.0 --backend-port 8000 --frontend-port 3000
-```
-
-### Stopping the Container
-
-To stop the running container, press `Ctrl+C` in the terminal where it's running, or find the container ID and stop it:
-
-```bash
-docker ps
-docker stop <container_id>
-
+- **Document Processor API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
 
 ## Project Structure
 
-- `app.py`: Main Reflex application code
-- `requirements.txt`: Python dependencies
-- `Dockerfile`: Docker configuration
-- `uploads/`: Directory for file uploads (if needed)
+```
+├── backbone/                 # Frontend (Reflex app)
+│   ├── __init__.py
+│   └── backbone.py          # Main frontend code
+├── document_processor/       # Backend (FastAPI)
+│   ├── __init__.py
+│   ├── main.py             # API endpoints
+│   ├── requirements.txt    # Backend dependencies
+│   └── Dockerfile          # Backend container
+├── uploads/                 # File upload directory
+├── requirements.txt         # Frontend dependencies
+├── Dockerfile              # Frontend container
+├── docker-compose.yml      # Multi-service setup
+├── start.sh               # Development startup script
+└── README.md
+```
 
-## Run the REFLEX app using :
+## API Endpoints
+
+The document processor provides the following endpoints:
+
+- `POST /upload` - Upload PDF files
+- `POST /process-pdfs` - Process uploaded PDFs and extract text
+- `GET /files` - List uploaded files
+- `DELETE /files` - Delete uploaded files
+- `GET /health` - Health check
+
+## Development
+
+The application is designed for easy development with hot reloading enabled for both services. Changes to the code will automatically restart the respective services.
 
 ```bash
 reflex run --backend-host 0.0.0.0 --backend-port 8000 --frontend-port 3000
