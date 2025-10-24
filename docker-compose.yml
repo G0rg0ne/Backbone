@@ -8,7 +8,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./uploads:/app/uploads
+      - ./document_processor:/app/document_processor
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
@@ -20,6 +20,8 @@ services:
     ports:
       - "3000:3000"
       - "8001:8001"  # Expose Reflex backend port
+    volumes:
+      - ./backbone:/app/backbone
     depends_on:
       - document_processor
     environment:
