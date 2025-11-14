@@ -18,14 +18,6 @@ def process_pdf(file):
     except Exception as e:
         return f"Error processing PDF: {str(e)}", None
 
-def download_pdf(file_path):
-    """
-    Return the file path for download.
-    """
-    if file_path and os.path.exists(file_path):
-        return file_path
-    return None
-
 # Create Gradio interface
 with gr.Blocks(title="PDF File Uploader", theme=gr.themes.Soft()) as app:
     gr.Markdown(
@@ -47,12 +39,12 @@ with gr.Blocks(title="PDF File Uploader", theme=gr.themes.Soft()) as app:
         
         with gr.Column():
             info_output = gr.Markdown(label="File Information")
-            download_output = gr.File(label="Download Uploaded File")
+
     # Event handlers
     upload_btn.click(
         fn=process_pdf,
         inputs=file_input,
-        outputs=[info_output, download_output]
+        outputs=[info_output]
     )
     
 if __name__ == "__main__":
