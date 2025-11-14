@@ -96,3 +96,7 @@ The application is designed for easy development with hot reloading enabled for 
 ```bash
 reflex run --backend-host 0.0.0.0 --backend-port 8000 --frontend-port 3000
 ```
+
+debug:
+
+docker run -it --entrypoint /bin/bash -v $(pwd):/app backbone-frontend
