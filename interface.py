@@ -2,6 +2,8 @@ import gradio as gr
 import os
 from pathlib import Path
 import tempfile
+from unstructured.partition.pdf import partition_pdf
+from loguru import logger
 
 def process_pdf(file):
     """
@@ -16,39 +18,40 @@ def process_pdf(file):
         file_size = os.path.getsize(file_path)
         file_size_mb = file_size / (1024 * 1024)
         
-        # Read PDF metadata if possible
+        # Read PDF content using unstructured
         try:
-            import PyPDF2
-            with open(file_path, 'rb') as pdf_file:
-                pdf_reader = PyPDF2.PdfReader(pdf_file)
-                num_pages = len(pdf_reader.pages)
-                
-                # Try to get metadata
-                metadata = pdf_reader.metadata
-                title = metadata.get('/Title', 'N/A') if metadata else 'N/A'
-                author = metadata.get('/Author', 'N/A') if metadata else 'N/A'
-                
-                info = f"""
-                **PDF File Information:**
-                - **File Name:** {os.path.basename(file_path)}
-                - **File Size:** {file_size_mb:.2f} MB ({file_size:,} bytes)
-                - **Number of Pages:** {num_pages}
-                - **Title:** {title}
-                - **Author:** {author}
+            elements = partition_pdf(filename=file_path)
+            
+            # Store the result in a variable
+            pdf_content = "\n\n".join([str(element) for element in elements])
+            
+            # Get some metadata
+            num_elements = len(elements)
+            
+            info = f"""
+            **PDF File Information:**
+            - **File Name:** {os.path.basename(file_path)}
+            - **File Size:** {file_size_mb:.2f} MB ({file_size:,} bytes)
+            - **Number of Elements Extracted:** {num_elements}
 
-                **Status:** ✅ PDF file uploaded and processed successfully!
-                """
+            **Status:** ✅ PDF file uploaded and processed successfully!
+
+            **PDF Content:**
+            {pdf_content}
+            """
+            
+            return info, file_path
+            
         except Exception as e:
             info = f"""
                 **PDF File Information:**
                 - **File Name:** {os.path.basename(file_path)}
                 - **File Size:** {file_size_mb:.2f} MB ({file_size:,} bytes)
 
-                **Status:** ✅ PDF file uploaded successfully!
-                **Note:** Could not read PDF metadata: {str(e)}
+                **Status:** ⚠️ PDF file uploaded but could not be processed!
+                **Error:** {str(e)}
                 """
-        
-        return info, file_path
+            return info, file_path
         
     except Exception as e:
         return f"Error processing PDF: {str(e)}", None
@@ -83,7 +86,6 @@ with gr.Blocks(title="PDF File Uploader", theme=gr.themes.Soft()) as app:
         with gr.Column():
             info_output = gr.Markdown(label="File Information")
             download_output = gr.File(label="Download Uploaded File")
-    
     # Event handlers
     upload_btn.click(
         fn=process_pdf,
