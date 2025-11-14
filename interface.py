@@ -1,8 +1,5 @@
 import gradio as gr
 import os
-from pathlib import Path
-import tempfile
-from unstructured.partition.pdf import partition_pdf
 from loguru import logger
 
 def process_pdf(file):
@@ -17,42 +14,7 @@ def process_pdf(file):
         file_path = file.name
         file_size = os.path.getsize(file_path)
         file_size_mb = file_size / (1024 * 1024)
-        
-        # Read PDF content using unstructured
-        try:
-            elements = partition_pdf(filename=file_path)
-            
-            # Store the result in a variable
-            pdf_content = "\n\n".join([str(element) for element in elements])
-            
-            # Get some metadata
-            num_elements = len(elements)
-            
-            info = f"""
-            **PDF File Information:**
-            - **File Name:** {os.path.basename(file_path)}
-            - **File Size:** {file_size_mb:.2f} MB ({file_size:,} bytes)
-            - **Number of Elements Extracted:** {num_elements}
-
-            **Status:** ✅ PDF file uploaded and processed successfully!
-
-            **PDF Content:**
-            {pdf_content}
-            """
-            
-            return info, file_path
-            
-        except Exception as e:
-            info = f"""
-                **PDF File Information:**
-                - **File Name:** {os.path.basename(file_path)}
-                - **File Size:** {file_size_mb:.2f} MB ({file_size:,} bytes)
-
-                **Status:** ⚠️ PDF file uploaded but could not be processed!
-                **Error:** {str(e)}
-                """
-            return info, file_path
-        
+        return file_path
     except Exception as e:
         return f"Error processing PDF: {str(e)}", None
 
@@ -99,4 +61,3 @@ if __name__ == "__main__":
         server_port=7860,
         share=False
     )
-
