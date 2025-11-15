@@ -1,33 +1,43 @@
 version: '3.8'
 
 services:
-  document_processor:
-    build:
-      context: ./document_processor
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./document_processor:/app/document_processor
-    environment:
-      - PYTHONUNBUFFERED=1
-    restart: unless-stopped
-
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.frontend
+    container_name: backbone-frontend
     ports:
-      - "3000:3000"
-      - "8001:8001"  # Expose Reflex backend port
+      - "7860:7860"
     volumes:
-      - ./backbone:/app/backbone
-    depends_on:
-      - document_processor
+      - ./uploads:/app/uploads
+      - ./interface.py:/app/interface.py
     environment:
-      - REFLEX_UPLOADED_FILES_DIR=/app/uploads
-      - DOCUMENT_PROCESSOR_URL=http://document_processor:8000
+      - GRADIO_SERVER_NAME=0.0.0.0
+      - GRADIO_SERVER_PORT=7860
+      - BACKEND_URL=http://backbone-backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
-
-volumes:
-  uploads:
+    command: ["python", "interface.py"]
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: backbone-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./document_processor.py:/app/document_processor.py
+      - ./logs:/app/logs
+    environment:
+      - GRADIO_SERVER_NAME=0.0.0.0
+      - GRADIO_SERVER_PORT=7860
+    command: ["uvicorn", "document_processor:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s

@@ -1,0 +1,7 @@
+PyPDF2>=3.0.0
+pypdf>=3.0.0
+unstructured[pdf]>=0.10.0
+loguru>=0.7.0
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
