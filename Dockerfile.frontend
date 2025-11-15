@@ -9,8 +9,11 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements file
 COPY requirements.frentend.txt requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Upgrade pip and install Python dependencies
+# Suppress root user warning (common and safe in Docker containers)
+ENV PIP_ROOT_USER_ACTION=ignore
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Expose Gradio default port
 EXPOSE 7860

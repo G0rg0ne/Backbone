@@ -96,7 +96,6 @@ with gr.Blocks(title="PDF File Uploader", theme=gr.themes.Soft()) as app:
                 variant="primary",
                 interactive=backend_ready
             )
-        
         with gr.Column():
             num_elements_output = gr.Markdown(label="Number of Elements")
             file_size_output = gr.Markdown(label="File Size (MB)")
