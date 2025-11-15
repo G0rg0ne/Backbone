@@ -14,6 +14,10 @@ services:
     environment:
       - GRADIO_SERVER_NAME=0.0.0.0
       - GRADIO_SERVER_PORT=7860
+      - BACKEND_URL=http://backbone-backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     command: ["python", "interface.py"]
   backend:
@@ -25,12 +29,15 @@ services:
       - "8000:8000"
     volumes:
       - ./uploads:/app/uploads
+      - ./document_processor.py:/app/document_processor.py
+      - ./logs:/app/logs
     environment:
       - GRADIO_SERVER_NAME=0.0.0.0
       - GRADIO_SERVER_PORT=7860
+    command: ["uvicorn", "document_processor:app", "--host", "0.0.0.0", "--port", "8000"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
