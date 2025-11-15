@@ -18,11 +18,16 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements file
 COPY requirements.backend.txt requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Upgrade pip and install Python dependencies
+# Suppress root user warning (common and safe in Docker containers)
+ENV PIP_ROOT_USER_ACTION=ignore
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy application file
 COPY document_processor.py /app/document_processor.py
+COPY report_builder.py /app/report_builder.py
+COPY .env /app/.env
 
 # Expose FastAPI port
 EXPOSE 8000

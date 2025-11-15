@@ -6,6 +6,13 @@ import tempfile
 import os
 from typing import Dict, Any
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+# Load .env file with error handling for parsing issues
+try:
+    load_dotenv()
+except Exception as e:
+    logger.warning(f"Warning loading .env file: {e}. Continuing with environment variables...")
 
 class ProcessPDFRequest(BaseModel):
     file: UploadFile = File(...)
@@ -56,11 +63,18 @@ async def process_pdf_file(file: UploadFile = File(...)) -> Dict[str, Any]:
         
         logger.info(f"Processing PDF file: {file.filename}")
         
+        # Get language from environment variable
+        language = os.getenv("LANGUAGE", "english").lower()
+        # Map language to unstructured language codes
+        language_map = {"french": "fra", "english": "eng"}
+        unstructured_lang = language_map.get(language, "eng")
+        
         # Use unstructured to partition the PDF
         elements = partition_pdf(
             filename=temp_file_path,
             strategy="auto",
             infer_table_structure=True,
+            languages=[unstructured_lang],
         )
         
         # Extract text content from elements
