@@ -6,10 +6,12 @@ Dynamic Summarization of Scientific Papers Using Profile-Aware AI
 
 ## Architecture
 
-This application is now split into two separate services:
+This application is split into two separate services:
 
-- **Frontend**: Reflex-based web interface (port 3000)
-- **Document Processor**: FastAPI backend service (port 8000)
+- **Frontend**: Gradio-based web interface (port 7860)
+- **Backend**: FastAPI document processor service (port 8000)
+
+The frontend automatically waits for the backend to be healthy before starting, ensuring users cannot make requests until the backend is ready.
 
 ## Prerequisites
 
@@ -25,78 +27,154 @@ docker-compose up --build
 ```
 
 This will:
-- Build both the frontend and document processor services
-- Start both services with proper networking
-- Make the application available at http://localhost:3000
+- Build both the frontend and backend services
+- Start the backend service first and wait for it to be healthy
+- Start the frontend service only after the backend is ready
+- Make the application available at http://localhost:7860
 
-## Manual Setup
+### Running Individual Services
 
-### Option 1: Using the Startup Script
-
+To run only the backend:
 ```bash
-chmod +x start.sh
-./start.sh
+docker-compose up backend
 ```
 
-### Option 2: Running Services Separately
-
-#### Start the Document Processor (Backend)
+To run only the frontend:
 ```bash
-cd document_processor
-pip install -r requirements.txt
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-#### Start the Frontend
-```bash
-pip install -r requirements.txt
-reflex run --frontend-port 3000
+docker-compose up frontend
 ```
 
 ## Accessing the Application
 
 Once running, you can access:
-- **Frontend**: http://localhost:3000
-- **Document Processor API**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
-
-## Project Structure
-
-```
-├── backbone/                 # Frontend (Reflex app)
-│   ├── __init__.py
-│   └── backbone.py          # Main frontend code
-├── document_processor/       # Backend (FastAPI)
-│   ├── __init__.py
-│   ├── main.py             # API endpoints
-│   ├── requirements.txt    # Backend dependencies
-│   └── Dockerfile          # Backend container
-├── uploads/                 # File upload directory
-├── requirements.txt         # Frontend dependencies
-├── Dockerfile              # Frontend container
-├── docker-compose.yml      # Multi-service setup
-├── start.sh               # Development startup script
-└── README.md
-```
+- **Frontend (Gradio UI)**: http://localhost:7860
+- **Backend API**: http://localhost:8000
+- **API Documentation (Swagger UI)**: http://localhost:8000/docs
+- **API Documentation (ReDoc)**: http://localhost:8000/redoc
+- **Health Check**: http://localhost:8000/health
 
 ## API Endpoints
 
 The document processor provides the following endpoints:
 
-- `POST /upload` - Upload PDF files
-- `POST /process-pdfs` - Process uploaded PDFs and extract text
-- `GET /files` - List uploaded files
-- `DELETE /files` - Delete uploaded files
-- `GET /health` - Health check
+### Health Check
+- `GET /health` - Health check endpoint to verify the API is running
+  - Returns: `{"status": "healthy", "service": "document_processor"}`
+
+### PDF Processing
+- `POST /process_pdf_file` - Process a PDF file and extract its content using unstructured
+  - **Request**: Multipart form data with a PDF file
+  - **Response**: 
+    ```json
+    {
+      "status": "success",
+      "content": "extracted text content...",
+      "num_elements": 42,
+      "file_size_mb": 1.23
+    }
+    ```
+
+## Project Structure
+
+```
+├── document_processor.py      # FastAPI backend service
+├── interface.py               # Gradio frontend interface
+├── requirements.backend.txt   # Backend Python dependencies
+├── requirements.frentend.txt  # Frontend Python dependencies
+├── Dockerfile.backend         # Backend container definition
+├── Dockerfile.frontend        # Frontend container definition
+├── docker-compose.yml         # Multi-service setup
+├── uploads/                   # File upload directory (mounted volume)
+├── logs/                      # Application logs (mounted volume)
+└── README.md
+```
+
+## Features
+
+### Backend Service
+- FastAPI-based REST API
+- PDF processing using `unstructured` library
+- Automatic text extraction from PDF documents
+- Health check endpoint for service monitoring
+- Comprehensive logging to `logs/document_processor.log`
+- Temporary file cleanup after processing
+
+### Frontend Service
+- Gradio-based user interface
+- PDF file upload and processing
+- Real-time backend status indicator
+- Automatic backend health checking
+- Disabled UI until backend is ready
+- Displays extracted content, element count, file size, and processing status
+
+## Service Dependencies
+
+The frontend service is configured to:
+1. Wait for the backend to pass its health check before starting (via `depends_on` in docker-compose)
+2. Perform additional health checks at startup (waits up to 60 seconds)
+3. Disable UI components until backend is confirmed ready
+4. Check backend health before processing each request
 
 ## Development
 
-The application is designed for easy development with hot reloading enabled for both services. Changes to the code will automatically restart the respective services.
+### Running Locally (without Docker)
 
+#### Backend
 ```bash
-reflex run --backend-host 0.0.0.0 --backend-port 8000 --frontend-port 3000
+pip install -r requirements.backend.txt
+uvicorn document_processor:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-debug:
+#### Frontend
+```bash
+pip install -r requirements.frentend.txt
+python interface.py
+```
 
-docker run -it --entrypoint /bin/bash -v $(pwd):/app backbone-frontend
+### Environment Variables
+
+The frontend uses the following environment variable:
+- `BACKEND_URL`: URL of the backend service (default: `http://backbone-backend:8000`)
+
+Set this in docker-compose.yml or create a `.env` file.
+
+### Logs
+
+Backend logs are written to `logs/document_processor.log` with:
+- Rotation: 100 MB per file
+- Retention: 10 days
+- Format: `{time} {level} {message}`
+- Level: INFO
+
+## Troubleshooting
+
+### Backend not starting
+- Check logs: `docker-compose logs backend`
+- Verify health endpoint: `curl http://localhost:8000/health`
+- Ensure port 8000 is not already in use
+
+### Frontend not starting
+- Check if backend is healthy first
+- Check logs: `docker-compose logs frontend`
+- Verify `BACKEND_URL` environment variable is set correctly
+
+### PDF processing fails
+- Ensure the uploaded file is a valid PDF
+- Check backend logs for detailed error messages
+- Verify unstructured library dependencies are installed correctly
+
+## Debugging
+
+To debug a container, you can access it with:
+
+```bash
+# Frontend container
+docker exec -it backbone-frontend /bin/bash
+
+# Backend container
+docker exec -it backbone-backend /bin/bash
+```
+
+## License
+
+See LICENSE file for details.
