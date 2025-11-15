@@ -11,6 +11,8 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - ./interface.py:/app/interface.py
+    env_file:
+      - .env
     environment:
       - GRADIO_SERVER_NAME=0.0.0.0
       - GRADIO_SERVER_PORT=7860
@@ -30,11 +32,19 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - ./document_processor.py:/app/document_processor.py
+      - ./report_builder.py:/app/report_builder.py
       - ./logs:/app/logs
+      - ./reports:/app/reports
+    env_file:
+      - .env
     environment:
       - GRADIO_SERVER_NAME=0.0.0.0
       - GRADIO_SERVER_PORT=7860
+      - PROMPT_NAME=backbone_prompt
+      - LANGUAGE=french
+      - MODEL=gpt-4o
     command: ["uvicorn", "document_processor:app", "--host", "0.0.0.0", "--port", "8000"]
+    
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
