@@ -21,5 +21,8 @@ COPY requirements.backend.txt requirements.txt
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose Gradio default port
+# Copy application file
+COPY document_processor.py /app/document_processor.py
+
+# Expose FastAPI port
 EXPOSE 8000
