@@ -2,7 +2,7 @@
 
 Dynamic Summarization of Scientific Papers Using Profile-Aware AI 
 
-![Backbone Interface](assets/ss_01.png)
+![Backbone Interface](assets/ss_02.png)
 
 *Example of the Backbone interface showing PDF upload, processing, and content extraction*
 
