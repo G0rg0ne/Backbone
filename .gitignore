@@ -212,3 +212,7 @@ marimo/_lsp/
 __marimo__/
 
 uploads/*
+
+
+#Custom
+report_1.md
