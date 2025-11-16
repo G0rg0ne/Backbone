@@ -27,6 +27,97 @@ The frontend automatically waits for the backend to be healthy before starting, 
 
 - Docker and Docker Compose installed on your system
 - Git (to clone the repository)
+- OpenAI API key (for AI report generation)
+- Langfuse account and API keys (for prompt management)
+
+## Environment Variables Setup
+
+Before running the application, you need to create a `.env` file in the project root directory with the required environment variables.
+
+### Creating the .env File
+
+1. Create a `.env` file in the root directory of the project:
+   ```bash
+   touch .env
+   ```
+
+2. Add the following environment variables to the `.env` file:
+
+```env
+# OpenAI Configuration (Required)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Langfuse Configuration (Required)
+LANGFUSE_SECRET_KEY=your_langfuse_secret_key_here
+LANGFUSE_PUBLIC_KEY=your_langfuse_public_key_here
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+
+# Prompt Configuration (Required)
+PROMPT_NAME=backbone_prompt
+
+# Language Configuration (Optional - defaults to "french")
+LANGUAGE=french
+
+# Model Configuration (Optional - defaults to "gpt-4o-mini")
+MODEL=gpt-4o
+
+# Backend URL (Optional - defaults to "http://backbone-backend:8000")
+# Only needed if running services separately or with custom URLs
+BACKEND_URL=http://backbone-backend:8000
+```
+
+### Environment Variables Explained
+
+#### Required Variables
+
+- **`OPENAI_API_KEY`**: Your OpenAI API key for generating AI reports. Get one at [platform.openai.com](https://platform.openai.com)
+- **`LANGFUSE_SECRET_KEY`**: Your Langfuse secret key for accessing prompts. Get it from your Langfuse project settings
+- **`LANGFUSE_PUBLIC_KEY`**: Your Langfuse public key for accessing prompts. Get it from your Langfuse project settings
+- **`PROMPT_NAME`**: The name of the prompt stored in Langfuse that will be used for report generation (e.g., `backbone_prompt`)
+
+#### Optional Variables
+
+- **`LANGFUSE_BASE_URL`**: The base URL for your Langfuse instance. Defaults to `https://cloud.langfuse.com` if not specified. Change this if you're using a self-hosted Langfuse instance
+- **`LANGUAGE`**: The language for report generation. Can be `"french"` or `"english"`. Defaults to `"french"` if not specified
+- **`MODEL`**: The OpenAI model to use for report generation. Defaults to `"gpt-4o-mini"` if not specified. Options include:
+  - `gpt-4o` (recommended for best quality)
+  - `gpt-4o-mini` (faster and cheaper)
+  - `gpt-4-turbo`
+  - `gpt-4`
+  - `gpt-3.5-turbo`
+- **`BACKEND_URL`**: The URL of the backend service. Only needed if running services separately or with custom configurations. Defaults to `http://backbone-backend:8000` when using Docker Compose
+
+### Example .env File
+
+Here's a complete example of a `.env` file:
+
+```env
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+LANGFUSE_SECRET_KEY=sk-lf-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+LANGFUSE_PUBLIC_KEY=pk-lf-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+PROMPT_NAME=backbone_prompt
+LANGUAGE=french
+MODEL=gpt-4o
+```
+
+### Security Notes
+
+⚠️ **Important Security Considerations:**
+
+- Never commit your `.env` file to version control
+- The `.env` file is already included in `.gitignore` to prevent accidental commits
+- Keep your API keys secure and never share them publicly
+- Rotate your API keys if they are ever exposed
+- Use different API keys for development and production environments
+
+### Verifying Your .env File
+
+After creating your `.env` file, you can verify it's being loaded correctly by checking the application logs:
+
+```bash
+docker-compose logs backend | grep -i "env\|error"
+```
 
 ## Quick Start with Docker Compose
 
@@ -143,10 +234,9 @@ python interface.py
 
 ### Environment Variables
 
-The frontend uses the following environment variable:
-- `BACKEND_URL`: URL of the backend service (default: `http://backbone-backend:8000`)
+For detailed information about setting up environment variables, see the [Environment Variables Setup](#environment-variables-setup) section above.
 
-Set this in docker-compose.yml or create a `.env` file.
+All environment variables should be set in the `.env` file in the project root directory. The `docker-compose.yml` file automatically loads variables from the `.env` file.
 
 ### Logs
 
