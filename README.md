@@ -87,38 +87,6 @@ BACKEND_URL=http://backbone-backend:8000
   - `gpt-3.5-turbo`
 - **`BACKEND_URL`**: The URL of the backend service. Only needed if running services separately or with custom configurations. Defaults to `http://backbone-backend:8000` when using Docker Compose
 
-### Example .env File
-
-Here's a complete example of a `.env` file:
-
-```env
-OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-LANGFUSE_SECRET_KEY=sk-lf-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-LANGFUSE_PUBLIC_KEY=pk-lf-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-LANGFUSE_BASE_URL=https://cloud.langfuse.com
-PROMPT_NAME=backbone_prompt
-LANGUAGE=french
-MODEL=gpt-4o
-```
-
-### Security Notes
-
-⚠️ **Important Security Considerations:**
-
-- Never commit your `.env` file to version control
-- The `.env` file is already included in `.gitignore` to prevent accidental commits
-- Keep your API keys secure and never share them publicly
-- Rotate your API keys if they are ever exposed
-- Use different API keys for development and production environments
-
-### Verifying Your .env File
-
-After creating your `.env` file, you can verify it's being loaded correctly by checking the application logs:
-
-```bash
-docker-compose logs backend | grep -i "env\|error"
-```
-
 ## Quick Start with Docker Compose
 
 The easiest way to run the application is using Docker Compose:
