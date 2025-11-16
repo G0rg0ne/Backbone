@@ -11,11 +11,6 @@ from typing import Optional, Tuple
 
 load_dotenv()
 
-# Configure logger for report builder
-# Create logs directory if it doesn't exist
-os.makedirs("logs", exist_ok=True)
-logger.add("logs/report_builder.log", rotation="100 MB", retention="10 days", format="{time} {level} {message}", level="INFO")
-
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY")
 LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY")
