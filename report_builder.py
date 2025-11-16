@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 import os
 import time
 from loguru import logger
-from langfuse import Langfuse, observe
+from langfuse import Langfuse, observe, get_client
 from openai import OpenAI
 from unstructured.partition.pdf import partition_pdf
 import tiktoken
@@ -41,6 +41,65 @@ MODEL_CONTEXT_LIMITS = {
 
 # Buffer for system prompt and response (conservative estimate)
 TOKEN_BUFFER = 2000  # Reserve tokens for system prompt and response
+
+# Model pricing per 1M tokens (input, output)
+# Prices as of 2024 - update as needed
+MODEL_PRICING = {
+    "gpt-4o": {
+        "input": 2.50,  # $2.50 per 1M input tokens
+        "output": 10.00,  # $10.00 per 1M output tokens
+    },
+    "gpt-4o-mini": {
+        "input": 0.150,  # $0.15 per 1M input tokens
+        "output": 0.600,  # $0.60 per 1M output tokens
+    },
+    "gpt-4-turbo": {
+        "input": 10.00,  # $10.00 per 1M input tokens
+        "output": 30.00,  # $30.00 per 1M output tokens
+    },
+    "gpt-4": {
+        "input": 30.00,  # $30.00 per 1M input tokens
+        "output": 60.00,  # $60.00 per 1M output tokens
+    },
+    "gpt-3.5-turbo": {
+        "input": 0.50,  # $0.50 per 1M input tokens
+        "output": 1.50,  # $1.50 per 1M output tokens
+    },
+}
+
+
+def calculate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
+    """
+    Calculate the cost based on model and token usage.
+    
+    Args:
+        model: The model name
+        prompt_tokens: Number of input tokens
+        completion_tokens: Number of output tokens
+    
+    Returns:
+        Total cost in USD
+    """
+    # Extract base model name (handle versions like "gpt-4o-2024-08-06")
+    base_model = model
+    if "gpt-4o" in model:
+        base_model = "gpt-4o"
+    elif "gpt-4-turbo" in model:
+        base_model = "gpt-4-turbo"
+    elif "gpt-4" in model and "gpt-4o" not in model:
+        base_model = "gpt-4"
+    elif "gpt-3.5-turbo" in model:
+        base_model = "gpt-3.5-turbo"
+    
+    # Get pricing for the model
+    pricing = MODEL_PRICING.get(base_model, MODEL_PRICING["gpt-4o-mini"])  # Default to gpt-4o-mini
+    
+    # Calculate cost
+    input_cost = (prompt_tokens / 1_000_000) * pricing["input"]
+    output_cost = (completion_tokens / 1_000_000) * pricing["output"]
+    total_cost = input_cost + output_cost
+    
+    return total_cost
 
 
 def get_encoding_name(model: str = MODEL) -> str:
@@ -377,23 +436,55 @@ def build_report(content, prompt_name=PROMPT_NAME, language=LANGUAGE):
         ]
         logger.debug(f"[Report Generation] Created message array with {len(messages)} messages")
         
-        # Use OpenAI client - the @observe() decorator will automatically log this call to Langfuse
+        # Use Langfuse context manager to track the generation
+        langfuse_client = get_client()
         logger.info(f"[Report Generation] Sending request to OpenAI API...")
         logger.info(f"[Report Generation] Model: {MODEL}, Total tokens: {total_tokens:,}")
         openai_start_time = time.time()
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=messages,
-        )
-        openai_time = time.time() - openai_start_time
         
-        # Log response details
-        if hasattr(response, 'usage'):
-            usage = response.usage
-            logger.info(f"[Report Generation] ✓ OpenAI API response received in {openai_time:.2f}s")
-            logger.info(f"[Report Generation] Token usage - Prompt: {usage.prompt_tokens:,}, Completion: {usage.completion_tokens:,}, Total: {usage.total_tokens:,}")
-        else:
-            logger.info(f"[Report Generation] ✓ OpenAI API response received in {openai_time:.2f}s")
+        with langfuse_client.start_as_current_observation(
+            as_type="generation",
+            name="build_report",
+            model=MODEL,
+            input=messages,
+        ) as generation:
+            # Make the OpenAI API call
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=messages,
+            )
+            openai_time = time.time() - openai_start_time
+            
+            # Log response details
+            if hasattr(response, 'usage'):
+                usage = response.usage
+                logger.info(f"[Report Generation] ✓ OpenAI API response received in {openai_time:.2f}s")
+                logger.info(f"[Report Generation] Token usage - Prompt: {usage.prompt_tokens:,}, Completion: {usage.completion_tokens:,}, Total: {usage.total_tokens:,}")
+                
+                # Calculate cost
+                cost = calculate_cost(MODEL, usage.prompt_tokens, usage.completion_tokens)
+                logger.info(f"[Report Generation] Estimated cost: ${cost:.6f} USD")
+                
+                # Update the generation with usage details and output
+                try:
+                    generation.update(
+                        output=response.choices[0].message.content if response.choices and response.choices[0].message.content else "",
+                        usage_details={
+                            "prompt_tokens": usage.prompt_tokens,
+                            "completion_tokens": usage.completion_tokens,
+                            "total_tokens": usage.total_tokens,
+                        },
+                        metadata={
+                            "cost": cost,
+                            "model": MODEL,
+                            "language": language,
+                        }
+                    )
+                    logger.debug(f"[Report Generation] Updated Langfuse generation with cost and token usage")
+                except Exception as e:
+                    logger.warning(f"[Report Generation] Could not update Langfuse generation: {e}")
+            else:
+                logger.info(f"[Report Generation] ✓ OpenAI API response received in {openai_time:.2f}s")
         
         # Validate response
         if not response.choices or not response.choices[0].message.content:
@@ -444,18 +535,56 @@ def build_report(content, prompt_name=PROMPT_NAME, language=LANGUAGE):
             
             logger.info(f"[Report Generation Fallback] Sending request to OpenAI API (model: {MODEL})...")
             openai_fallback_start = time.time()
-            response = client.chat.completions.create(
+            
+            # Use Langfuse context manager to track the fallback generation
+            langfuse_client = get_client()
+            fallback_messages = [{"role": "user", "content": content}]
+            
+            with langfuse_client.start_as_current_observation(
+                as_type="generation",
+                name="build_report_fallback",
                 model=MODEL,
-                messages=[{"role": "user", "content": content}],
-            )
-            openai_fallback_time = time.time() - openai_fallback_start
-            logger.info(f"[Report Generation Fallback] ✓ OpenAI API response received in {openai_fallback_time:.2f}s")
-            
-            if not response.choices or not response.choices[0].message.content:
-                logger.error("[Report Generation Fallback] ERROR: Received empty response from OpenAI API")
-                raise ValueError("Received empty response from OpenAI API in fallback")
-            
-            fallback_content = response.choices[0].message.content
+                input=fallback_messages,
+            ) as generation:
+                # Make the OpenAI API call
+                response = client.chat.completions.create(
+                    model=MODEL,
+                    messages=fallback_messages,
+                )
+                openai_fallback_time = time.time() - openai_fallback_start
+                logger.info(f"[Report Generation Fallback] ✓ OpenAI API response received in {openai_fallback_time:.2f}s")
+                
+                # Validate response
+                if not response.choices or not response.choices[0].message.content:
+                    logger.error("[Report Generation Fallback] ERROR: Received empty response from OpenAI API")
+                    raise ValueError("Received empty response from OpenAI API in fallback")
+                
+                fallback_content = response.choices[0].message.content
+                
+                # Update the generation with usage details and output
+                if hasattr(response, 'usage'):
+                    usage = response.usage
+                    cost = calculate_cost(MODEL, usage.prompt_tokens, usage.completion_tokens)
+                    logger.info(f"[Report Generation Fallback] Token usage - Prompt: {usage.prompt_tokens:,}, Completion: {usage.completion_tokens:,}, Total: {usage.total_tokens:,}")
+                    logger.info(f"[Report Generation Fallback] Estimated cost: ${cost:.6f} USD")
+                    
+                    try:
+                        generation.update(
+                            output=fallback_content,
+                            usage_details={
+                                "prompt_tokens": usage.prompt_tokens,
+                                "completion_tokens": usage.completion_tokens,
+                                "total_tokens": usage.total_tokens,
+                            },
+                            metadata={
+                                "cost": cost,
+                                "model": MODEL,
+                                "mode": "fallback",
+                            }
+                        )
+                        logger.debug(f"[Report Generation Fallback] Updated Langfuse generation with cost and token usage")
+                    except Exception as e:
+                        logger.warning(f"[Report Generation Fallback] Could not update Langfuse generation: {e}")
             fallback_time = time.time() - fallback_start_time
             logger.info(f"[Report Generation Fallback] ✓ Fallback report generation complete in {fallback_time:.2f}s")
             logger.info(f"[Report Generation Fallback] Generated report length: {len(fallback_content):,} characters")
@@ -470,24 +599,3 @@ def build_report(content, prompt_name=PROMPT_NAME, language=LANGUAGE):
             import traceback
             logger.error(f"[Report Generation Fallback] Traceback: {traceback.format_exc()}")
             raise
-
-if __name__ == "__main__":
-    #read a pdf using unstructured
-    elements = partition_pdf(
-            filename="uploads/attentionisallyouneed.pdf",
-            strategy="auto",
-            infer_table_structure=True,
-            languages=["eng"],
-            size={"longest_edge": 2048},
-        )
-        
-    # Extract text content from elements
-    extracted_text = "\n\n".join([str(element) for element in elements])
-    report = build_report(extracted_text)
-    
-    # Save report to file
-    with open("reports/report_1.md", "w", encoding="utf-8") as f:
-        f.write(report)
-    
-    logger.info("Report saved to report.md")
-    print(f"Report saved to report.md ({len(report)} characters)")
