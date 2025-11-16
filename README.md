@@ -10,7 +10,7 @@ One section of the presentation is dedicated to scientific papers, where I summa
 
 Preparing this section typically takes me over an hour, as I read the paper, understand the underlying methods, evaluate the achievements, and consider how it could be relevant to the internal projects we are working on. To streamline this process, I decided to create an agent that can help me prepare the presentation by extracting highlights and key insights that I can directly use in my talk.
 
-![Backbone Interface](assets/ss_03.png)
+![Backbone Interface](assets/ss_04.png)
 
 *Example of the Backbone interface showing PDF upload, processing, and content extraction*
 
