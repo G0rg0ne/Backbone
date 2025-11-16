@@ -149,7 +149,7 @@ def process_pdf_file(file: Optional[str], progress: gr.Progress = gr.Progress())
 
 # Create Gradio interface with modern, improved design
 with gr.Blocks(
-    title="AI Document Analyzer | Scientific Paper Agent",
+    title=" Backbone | Dynamic Summarization of Scientific Papers Using Profile-Aware AI",
     theme=gr.themes.Soft(
         primary_hue="purple",
         secondary_hue="blue",
@@ -399,7 +399,7 @@ with gr.Blocks(
         gr.HTML(
             """
             <div class="main-header">
-                <h1>🤖 Scientific Paper Agent</h1>
+                <h1>🤖 Backbone </h1>
                 <p>Upload a scientific paper and get an AI-generated comprehensive analysis report</p>
             </div>
             """
