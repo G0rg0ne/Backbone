@@ -2,7 +2,17 @@
 
 Dynamic Summarization of Scientific Papers Using Profile-Aware AI 
 
-![Backbone Interface](assets/ss_02.png)
+Context:
+
+In my current position at EURANOVA, I give a weekly presentation to all my colleagues on the latest developments in AI around the world, covering news, tools, scientific papers, and more. I scan the internet to identify trending events and hot topics related to AI and ML globally.
+
+One section of the presentation is dedicated to scientific papers, where I summarize a recent advancement in the field. These summaries need to be brief and high-level because the audience is cross-functional—many colleagues do not have a deep technical background. Therefore, the presentation must be adapted to be easily understood by everyone.
+
+Preparing this section typically takes me over an hour, as I read the paper, understand the underlying methods, evaluate the achievements, and consider how it could be relevant to the internal projects we are working on. To streamline this process, I decided to create an agent that can help me prepare the presentation by extracting highlights and key insights that I can directly use in my talk.
+
+![Backbone Interface](assets/ss_04.png)
+
+![Backbone Interface](assets/ss_03.png)
 
 *Example of the Backbone interface showing PDF upload, processing, and content extraction*
 
